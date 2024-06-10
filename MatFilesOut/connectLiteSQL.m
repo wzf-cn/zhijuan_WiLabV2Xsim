@@ -15,7 +15,7 @@ outParams.conn = sqlite(dbfile,"create");
 % Table PacketStatusDetail
 % [time, TxID, RxID, BRID, distance, packet_status(1:correct, 0:error)]
 sqlquery = strcat("CREATE TABLE PacketStatusDetail(time numeric, ", ...
-    "TxID INT, RxID INT, BRID INT, distance numeric, packet_status INT)");
+    "TxID INT, RxID INT, BRID INT, distance numeric, velocity numeric, direction INT, packet_status INT)");
 execute(outParams.conn,sqlquery)
 
 end
