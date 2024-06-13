@@ -93,12 +93,15 @@ if outParams.printPacketReceptionRatio
 end
 
 if outParams.printPacketReceptionStatusAll
-    % [time, TxID, RxID, BRID, distance, packet_status(1:correct, 0:error)
-    pckStatus = zeros(size(fateRxListRawMax,1), 6);
+    % [time, TxID, RxID, BRID, distance, velocity, direction, packet_status(1:correct, 0:error)
+    pckStatus = zeros(size(fateRxListRawMax,1), 8);
     pckStatus(:,1) = timeManagement.timeNow;
-    pckStatus(:,2:end) = fateRxListRawMax;
+    pckStatus(:,2:5) = fateRxListRawMax(:,1:4);  % ID of Tx
+    pckStatus(:,6) = positionManagement.v(fateRxListRawMax(:,1));  % speed of Tx
+    pckStatus(:,7) = positionManagement.direction(fateRxListRawMax(:,1));
+    pckStatus(:,8) = fateRxListRawMax(:,5);
 
-    statusTable = array2table(pckStatus, 'VariableNames', {'time', 'TxID', 'RxID', 'BRID', 'distance', 'packet_status'});
+    statusTable = array2table(pckStatus, 'VariableNames', {'time', 'TxID', 'RxID', 'BRID', 'distance', 'velocity', 'direction', 'packet_status'});
     tablename = "PacketStatusDetail";
     sqlwrite(outParams.conn,tablename,statusTable);
 end
