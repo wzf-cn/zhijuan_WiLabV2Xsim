@@ -1,7 +1,9 @@
 % read packet status data
+fullPath = fileparts(mfilename('fullpath'));
+addpath(genpath(fullPath));
 
 % get database path
-dbFilePath = fullfile(fileparts(fileparts(mfilename('fullpath'))), "Output", "ITS", "rho100_v_km", "resuts_1.db");
+dbFilePath = fullfile("Output", "simulation_1", "NRV2X", "rho150_v_km", "resuts_1.db");
 tableName = 'PacketStatusDetail';
 TxID = 10;
 TxInterval = 0.1;
@@ -31,7 +33,7 @@ plot(numVCount(:,1), numVCount(:,2), '-', 'Color', myColors(2,:), DisplayName="S
 plot(numVReal(:,1), numVReal(:,2), '--', 'Color', myColors(1,:), DisplayName="Num of V on Road", LineWidth=1.5);
 xlabel("Distance [m]");
 ylabel("Number of vehicles");
-legend(Location="southwest");
+legend(Location="northeast");
 
 fig = figure();
 hold on;
