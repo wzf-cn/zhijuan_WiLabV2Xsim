@@ -7,7 +7,7 @@ function Pa = cal_awarenessProbability(PRP, RxTimes, duration, TxInterval)
 %   TxInterval: [s], transmission time interval or packet generation time
 %   interval
 n = floor(duration/TxInterval);
-Pa = zeros(length(PRP), 1);  % init
+Pa = zeros(size(PRP));  % init
 
 for k = RxTimes:1:n
     Pa = Pa + nchoosek(n, k) .* PRP.^k .* (1-PRP).^(n-k);

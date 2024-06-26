@@ -35,7 +35,7 @@ calAvg = false;
 estimatePRPTgV = estimatePRPTgV(estimatePRPTgV(:,2) ~= 0, :);
 
 % Estimate awareness probability
-PRP = estimateAvgPRP;
+PRP = estimateAvgPRP(:,2);
 RxTimes = 1;
 duration = 1;
 TxInterval = 0.1;
