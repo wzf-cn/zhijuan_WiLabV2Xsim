@@ -1,14 +1,16 @@
-function [onRoadPRP] = prp_onRoad(dbPath, tableName, TxID, TxInterval, obTimePeriod, disResolution, maxDis)
+function [onRoadPRP] = prp_onRoad(tech, dbPath, tableName, TxID, obTimePeriod, disResolution)
 %GETPRPFROMID given a log file, get the distance-PRP data of the specific
 %vehicle.
-% filePath: The full path of the database
-% tableName: the table name, "PacketStatusDetail" for now
-% TxID: The ID of the vehicle that it's PRP will be output
-% TxInterval: the transmission times interval, normally 0.1 seconds
-% logTimeStep: the time step for calculate the average prp
-% timePeriod: the time span for calculate the average PRP
-% disResolution and maxDis: deciding the distance interval of the dis-PRP
-% data
+%   input:
+%       tech: technology (11p or CV2X)
+%       dbPath: The full path of the database
+%       tableName: the table name, "PacketStatusDetail" for now
+%       TxID: The ID of the vehicle that it's PRP will be output. If equals -1,
+%             then calculate the average PRP on the road
+%       obTimePeriod: the time span for calculate the average PRP
+%       disResolution and maxDis: deciding the distance interval of the dis-PRP
+%                                 data
+%
 % output: dis_prp  -> distanceSteps x logTimeSteps
 
 % Felix
@@ -36,17 +38,32 @@ switch tPnum
         error("timePeriod should be one or two numbers of the simulation time.");
 end
 
+% get maximum distance from database
+switch tech
+    case "11p"
+        sqlquery = "select RawMax11p from ParamsInSim";
+    case "CV2X"
+        sqlquery = "select RawMaxCV2X from ParamsInSim";
+    otherwise
+        error("tech should be 11p or CV2X");
+end
+paramsdb = fetch(conn, sqlquery);
+maxDis = paramsdb{1,1};
 times = startTime:1:endTime;
 distances = disResolution:disResolution:maxDis;
 
 
 % load data from database
-sqlquery = sprintf("select * from %s where time >= %f and time < %f and TxID = %f", tableName, startTime, endTime, TxID);
+if TxID > 0
+    sqlquery = sprintf("select * from %s where time >= %f and time < %f and TxID = %f", tableName, startTime, endTime, TxID);
+else
+    sqlquery = sprintf("select * from %s where time >= %f and time < %f", tableName, startTime, endTime);
+end
+
 data = fetch(conn,sqlquery);
-numPktAssuming = floor((endTime - startTime) / TxInterval);  % number of packets each vehicle would generate during the observation time
 
 % init output matrix
-onRoadPRP = zeros(length(distances), 1+length(times));
+onRoadPRP = zeros(length(distances), length(times));
 onRoadPRP(:,1) = distances;
 
 for iDis = 1:length(distances)
