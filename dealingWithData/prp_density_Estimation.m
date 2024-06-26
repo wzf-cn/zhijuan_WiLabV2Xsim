@@ -1,7 +1,29 @@
-function [estimateAvgPRP, numVCount, numVReal] = prp_density_Estimation(dbPath, tableName, taggedID, TxInterval, obTimePeriod, disResolution, maxDis)
+function [estimatePRP, numVCountByTgV, numVReal] = prp_density_Estimation(tech, dbPath, tableName, taggedID, calAvg, TxInterval, obTimePeriod, disResolution)
 %PRPEVALUATION Evaluate the PRR of Tx by counting the successively received
 %packets generated from its neighbour
-%   Detailed explanation goes here
+%   input:
+%       tech: technology (11p or CV2X)
+%       dbPath: the full path of the database
+%       tableName: the table name in the database
+%       taggedID: the ID of the tagged vehicle
+%       calAvg: Bool. if true, "estimateAvgPRP" will retrun the average
+%               estimated PRP
+%       TxInterval: [s], the transmission interval, used to estimate the
+%                   number of packets generated
+%       obTimePeriod: The observation time period.
+%                     a. 0 ~ obTimePeriod, if scalar, or
+%                     b. obTimePeriod(1) ~ obTimePeriod(2), if two-elements
+%                        array
+%       disResolution: distance resolution
+%
+%   output:
+%       estimatePRP: estimated PRP by the tagged vehicle (taggedID) when
+%                    calAvg is false, or estimated average PRP by all 
+%                    vehicles (maybe based on transmit everyone's 
+%                    "estimated PRP" 
+%       numVCount: the number of vehicles counted by the tagged vehicle
+%       numVReal:  the real number of vehicles on road around the tagged
+%                  vehicle
 
 % Step0: connect database
 % link to the database
@@ -20,69 +42,109 @@ switch tPnum
         error("timePeriod should be one or two numbers of the simulation time.");
 end
 
+% get maximum distance from database
+switch tech
+    case "11p"
+        sqlquery = "select RawMax11p from ParamsInSim";
+    case "CV2X"
+        sqlquery = "select RawMaxCV2X from ParamsInSim";
+    otherwise
+        error("tech should be 11p or CV2X");
+end
+paramsdb = fetch(conn, sqlquery);
+maxDis = paramsdb{1,1};
 distances = disResolution:disResolution:maxDis;
-
-% load data from database
-sqlquery = sprintf("select * from %s where time >= %f and time < %f and RxID = %f", tableName, startTime, endTime, taggedID);
-data = fetch(conn,sqlquery);
 numPktAssuming = floor((endTime - startTime) / TxInterval);  % number of packets each vehicle would generate during the observation time
 
-%% Get PRP and density based on BSM
-% Step1: get the sensed vehicles of tagged ID
-indexSensed = data.packet_status > 0;
-sensedIDs = data.TxID(indexSensed);
-sensedIDs = unique(sensedIDs);
+% load data from database
+if calAvg  % for all vehicle
+    sqlquery = sprintf("select * from %s where time >= %f and time < %f", tableName, startTime, endTime);
+else  % for spesific vehicle
+    sqlquery = sprintf("select * from %s where time >= %f and time < %f and RxID = %f", tableName, startTime, endTime, taggedID);
+end
+data = fetch(conn,sqlquery);
 
+% get tagged IDs from received IDs
+taggedIDs = unique(data.RxID);
 
-% init output
-avgPRP = zeros(length(distances), length(sensedIDs));
-numVCount = avgPRP;
+% init 
+estimatePRP = zeros(length(distances), length(taggedIDs));
 
+% For each vehicle, get its estimated PRP by estimate the packets received 
+% from it's neighbor
+for iTgID = 1:length(taggedIDs)
+    data_Tg = data(data.RxID == taggedIDs(iTgID), :);
 
-for iSID = 1:length(sensedIDs)
-    % Step2: find out how many packets that the vehicle i has been generated
-    % within the given distance of tagged ID
-    indexSensedID = data.TxID == sensedIDs(iSID);
-    tempData = data(indexSensedID,:);
-    
-    % Step3: find out how many packets have been received successfully by tagged ID
-    % among the Step2
-    for iDis = 1:length(distances)
-        indexDis = tempData.distance >= distances(iDis) - disResolution & tempData.distance < distances(iDis);
-        numTot = sum(indexDis);
-        if numTot == 0
-            continue;
-        end
-        numRxOK = sum(tempData.packet_status(indexDis) == 1);
-        avgPRP(iDis, iSID) = numRxOK/numTot;
-        numVCount(iDis, iSID) = numTot / numPktAssuming;  % if the vehicle move from on distance section to the other, count a fraction not just 1
+    %% Get PRP and density based on BSM
+    % Get the sensed vehicles of tagged ID
+    neighborsSensedByTgV = unique(data_Tg.TxID(data_Tg.packet_status > 0));    
+
+    % init
+    PRPsEstimatedFromNeighbor = zeros(length(distances), length(neighborsSensedByTgV));
+    if taggedIDs(iTgID) == taggedID
+        numVCountByTgV = PRPsEstimatedFromNeighbor;
     end
+
+    for iSID = 1:length(neighborsSensedByTgV)
+        % Packets transmitted by one of the tagged V's neighbors
+        tempData = data_Tg(data_Tg.TxID == neighborsSensedByTgV(iSID), :);
+        
+        % Dealing with each distance section
+        for iDis = 1:length(distances)
+            indexDis = tempData.distance >= distances(iDis) - disResolution & tempData.distance < distances(iDis);
+            numPktTot = sum(indexDis);
+            if numPktTot == 0
+                continue;
+            end
+
+            % log the PRP by each neighbor and each distance section
+            numRxOK = sum(tempData.packet_status(indexDis) == 1);
+            PRPsEstimatedFromNeighbor(iDis, iSID) = numRxOK/numPktTot;
+
+            % 
+            % if the vehicle move from on distance section to the other, count a fraction not just 1
+            if taggedIDs(iTgID) == taggedID
+                numVCountByTgV(iDis, iSID) = numPktTot / numPktAssuming;  
+            end
+        end
+    end
+
+    % Step4: PRP estimated by each vehicle
+    % 0 in estimateAvgPRPofOneTgID means not been sensed by the tagged V
+    estimateAvgPRPofOneTgID = sum(PRPsEstimatedFromNeighbor,2) ./ sum(PRPsEstimatedFromNeighbor~=0, 2);
+    estimateAvgPRPofOneTgID(isnan(estimateAvgPRPofOneTgID)) = 0;
+    
+    if taggedIDs(iTgID) == taggedID
+        numVCountByTgV = sum(numVCountByTgV, 2);
+    end
+    
+    estimatePRP(:,iTgID) = estimateAvgPRPofOneTgID;
 end
 
-% Step4: get average PRP
-estimateAvgPRP = sum(avgPRP,2) ./ sum(avgPRP~=0, 2);
-estimateAvgPRP(isnan(estimateAvgPRP)) = 0;
-numVCount = sum(numVCount, 2);
+estimatePRP = sum(estimatePRP, 2) ./ sum(estimatePRP~=0, 2);
+estimatePRP(isnan(estimatePRP)) = 0;
+estimatePRP = [distances', estimatePRP];
+numVCountByTgV = [distances', numVCountByTgV];
 
-estimateAvgPRP = [distances', estimateAvgPRP];
-numVCount = [distances', numVCount];
 
 %% get real number of vehicles
-realIDs = unique(data.TxID);
+data_TgRx = data(data.RxID == taggedID, :);  % all packets tagged V try to receive
+neighborIDs = unique(data_TgRx.TxID);  % the neighbor's ID of tagged vehicle
+
 numVReal = zeros(length(distances), 2);
 numVReal(:,1) = distances;
 
-for iRealID = 1:length(realIDs)
-    indexRealID = data.TxID == realIDs(iRealID);
-    tempData = data(indexRealID,:);
+for iNID = 1:length(neighborIDs)
+    indexNID = data_TgRx.TxID == neighborIDs(iNID);
+    tempData = data_TgRx(indexNID,:);
 
     for iDis = 1:length(distances)
         indexDis = tempData.distance >= distances(iDis) - disResolution & tempData.distance < distances(iDis);
-        numTot = sum(indexDis);
-        if numTot == 0
+        numPktTot = sum(indexDis);
+        if numPktTot == 0
             continue;
         end
-        numVReal(iDis, 2) = numVReal(iDis, 2) + numTot / numPktAssuming;  % if the vehicle move from on distance section to the other, count a fraction not just 1
+        numVReal(iDis, 2) = numVReal(iDis, 2) + numPktTot / numPktAssuming;  % if the vehicle move from on distance section to the other, count a fraction not just 1
     end
 end
 

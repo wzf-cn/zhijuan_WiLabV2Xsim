@@ -237,6 +237,9 @@ outParams = connectLiteSQL(outParams);
 [simValues,outputValues,appParams,simParams,phyParams,sinrManagement,outParams,stationManagement] = mainV2X(appParams,simParams,phyParams,outParams,simValues,outputValues,positionManagement);    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% output params into database
+out2db(simValues,outputValues,appParams,simParams,phyParams,sinrManagement,outParams,stationManagement);
+
 %% KPIs Computation (Output)
 fprintf('\nElaborating the outputs...\n');
 
