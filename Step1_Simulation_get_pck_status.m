@@ -22,7 +22,7 @@ simTime = 5;                        % simulation time [s]
 %% NR-V2X simulation
 % Configuration file
 configFile = 'only_NR.cfg';
-outputFolder = fullfile(outputMainFolder, "CV2X", sprintf("rho%d_v_km",rho_km));
+outputFolder = fullfile(outputMainFolder, "CV2X", sprintf("rho%d_v_km",round(rho_km)));
 
 % Launches simulation
 WiLabV2Xsim(configFile,'outputFolder',outputFolder,'beaconSizeBytes',packetSize, ...
@@ -32,7 +32,7 @@ WiLabV2Xsim(configFile,'outputFolder',outputFolder,'beaconSizeBytes',packetSize,
 %% IEEE 802.11p simulations
 % Configuration file
 configFile = 'only_ITS.cfg';
-outputFolder = fullfile(outputMainFolder, "11p", sprintf("rho%d_v_km",rho_km));
+outputFolder = fullfile(outputMainFolder, "11p", sprintf("rho%d_v_km",round(rho_km)));
 
 % Launches simulation
 WiLabV2Xsim(configFile,'outputFolder',outputFolder,'beaconSizeBytes',packetSize, ...
