@@ -4,7 +4,7 @@ fullPath = fileparts(mfilename('fullpath'));
 addpath(genpath(fullPath));
 
 % settings
-tech = "11p";
+tech = "CV2X";
 TxID = 10;  % -1 means calculate the average PRP on the road
 TxInterval = 0.1;
 logTimeStep = 1;
@@ -58,7 +58,7 @@ plot(numVCount(:,1), numVCount(:,2), '-', 'Color', myColors(2,:), DisplayName="S
 % plot number of vehicles on road
 plot(numVReal(:,1), numVReal(:,2), '--', 'Color', myColors(1,:), DisplayName="Num of V on Road", LineWidth=1.5);
 % plot re-estimated number
-plot(numVCount(:,1), numVCount(:,2)./Pa(:,2), '-', 'Color', myColors(4,:), DisplayName="Re-estimated number", LineWidth=1.5);
+plot(numVCount(:,1), numVCount(:,2)./Pa, '-', 'Color', myColors(4,:), DisplayName="Re-estimated number", LineWidth=1.5);
 xlabel("Distance [m]");
 ylabel("Number of vehicles");
 legend(Location="northeast");
