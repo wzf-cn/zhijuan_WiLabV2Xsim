@@ -68,7 +68,7 @@ data = fetch(conn,sqlquery);
 taggedIDs = unique(data.RxID);
 
 % init 
-estimatePRP = zeros(length(distances), length(taggedIDs));
+estimateRx = zeros(length(distances), 2);
 
 % For each vehicle, get its estimated PRP by estimate the packets received 
 % from it's neighbor
@@ -77,12 +77,10 @@ for iTgID = 1:length(taggedIDs)
 
     %% Get PRP and density based on BSM
     % Get the sensed vehicles of tagged ID
-    neighborsSensedByTgV = unique(data_Tg.TxID(data_Tg.packet_status > 0));    
+    neighborsSensedByTgV = unique(data_Tg.TxID(data_Tg.packet_status > 0));        
 
-    % init
-    PRPsEstimatedFromNeighbor = zeros(length(distances), length(neighborsSensedByTgV));
     if taggedIDs(iTgID) == taggedID
-        numVCountByTgV = PRPsEstimatedFromNeighbor;
+        numVCountByTgV = zeros(length(distances), 1);
     end
 
     for iSID = 1:length(neighborsSensedByTgV)
@@ -99,29 +97,18 @@ for iTgID = 1:length(taggedIDs)
 
             % log the PRP by each neighbor and each distance section
             numRxOK = sum(tempData.packet_status(indexDis) == 1);
-            PRPsEstimatedFromNeighbor(iDis, iSID) = numRxOK/numPktTot;
+            estimateRx(iDis, :) = estimateRx(iDis, :) + [numRxOK, numPktTot];
 
-            % 
-            % if the vehicle move from on distance section to the other, count a fraction not just 1
             if taggedIDs(iTgID) == taggedID
-                numVCountByTgV(iDis, iSID) = numPktTot / numPktAssuming;  
+                % if the vehicle move from one road section to the other, count
+                % a fraction not just 1
+                numVCountByTgV(iDis) = numVCountByTgV(iDis) + numPktTot/numPktAssuming;  
             end
         end
     end
-
-    % Step4: PRP estimated by each vehicle
-    % 0 in estimateAvgPRPofOneTgID means not been sensed by the tagged V
-    estimateAvgPRPofOneTgID = sum(PRPsEstimatedFromNeighbor,2) ./ sum(PRPsEstimatedFromNeighbor~=0, 2);
-    estimateAvgPRPofOneTgID(isnan(estimateAvgPRPofOneTgID)) = 0;
-    
-    if taggedIDs(iTgID) == taggedID
-        numVCountByTgV = sum(numVCountByTgV, 2);
-    end
-    
-    estimatePRP(:,iTgID) = estimateAvgPRPofOneTgID;
 end
 
-estimatePRP = sum(estimatePRP, 2) ./ sum(estimatePRP~=0, 2);
+estimatePRP = estimateRx(:,1) ./ estimateRx(:,2);
 estimatePRP(isnan(estimatePRP)) = 0;
 estimatePRP = [distances', estimatePRP];
 numVCountByTgV = [distances', numVCountByTgV];
